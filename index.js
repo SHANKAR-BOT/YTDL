@@ -1,72 +1,44 @@
 const express = require("express");
 const axios = require("axios");
-const qs = require("qs");
 
 const app = express();
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-const searchVideo = async (url) => {
-    let { data } = await axios.post("https://ssvid.net/api/ajax/search", qs.stringify({ query: url, vt: "home" }), {
-        headers: {
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "Origin": "https://ssvid.net",
-            "Referer": "https://ssvid.net/",
-            "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36",
-            "X-Requested-With": "XMLHttpRequest"
-        }
-    });
-    return data;
+// 🔹 Function to shorten the URL using TinyURL API
+const shortenURL = async (longURL) => {
+    try {
+        let { data } = await axios.get(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longURL)}`);
+        return data; // Returns short URL
+    } catch (error) {
+        console.error("Error shortening URL:", error);
+        return null; // Returns null if failed
+    }
 };
 
-const ymp3 = async (url) => {
-    let res = await searchVideo(url);
-    let { data } = await axios.post("https://ssvid.net/api/ajax/convert", qs.stringify({ vid: res.vid, k: res.links.mp3.mp3128.k }), {
-        headers: {
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "Origin": "https://ssvid.net",
-            "Referer": "https://ssvid.net/",
-            "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36",
-            "X-Requested-With": "XMLHttpRequest"
-        }
-    });
-    return data;
-};
-
-const ytmp4 = async (url) => {
-    let res = await searchVideo(url);
-    let { data } = await axios.post("https://ssvid.net/api/ajax/convert", qs.stringify({ vid: res.vid, k: res.links.mp4.auto.k }), {
-        headers: {
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "Origin": "https://ssvid.net",
-            "Referer": "https://ssvid.net/",
-            "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36",
-            "X-Requested-With": "XMLHttpRequest"
-        }
-    });
-    return data;
-};
-
-app.get("/", (req, res) => {
-    res.send("YouTube Downloader API is running!");
-});
-
-// ✅ **New API to Get Download Link Instead of Direct Download**
-app.get("/getDownloadLink", async (req, res) => {
+// 🔹 API Endpoint to Generate Short Download Link
+app.get("/getShortDownloadLink", async (req, res) => {
     let { url, format } = req.query;
     if (!url) return res.status(400).json({ error: "URL नहीं हो सकता खाली!" });
 
     try {
+        // 🔸 Get the actual download link (replace with your actual function)
         let result = format === "mp3" ? await ymp3(url) : await ytmp4(url);
+        
+        // 🔸 Shorten the download link using TinyURL
+        let shortLink = await shortenURL(result.dlink);
+
+        // 🔸 Send response with short link
         res.json({
             title: result.title,
-            download_link: result.dlink,
+            short_download_link: shortLink || result.dlink, // If shortening fails, send original link
             format: format
         });
+
     } catch (err) {
-        console.error("Error fetching download link:", err);
-        res.status(500).json({ error: "डाउनलोड लिंक प्राप्त करने में विफल" });
+        console.error("Error fetching short download link:", err);
+        res.status(500).json({ error: "शॉर्ट डाउनलोड लिंक प्राप्त करने में विफल" });
     }
 });
 
-app.listen(3000, () => console.log("Server चल रहा है port 3000 पर 🚀"));
+// Start the server
+app.listen(3000, () => console.log("🚀 Server चल रहा है port 3000 पर!"));
