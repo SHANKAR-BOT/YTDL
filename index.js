@@ -4,14 +4,23 @@ const axios = require("axios");
 const app = express();
 app.use(express.json());
 
-// 🔹 Function to shorten the URL using TinyURL API
+// 🔹 Function to shorten URL (TinyURL + Backup is.gd)
 const shortenURL = async (longURL) => {
     try {
         let { data } = await axios.get(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longURL)}`);
-        return data; // Returns short URL
+        if (data.includes("Error")) throw new Error("TinyURL failed");
+        return data;
     } catch (error) {
-        console.error("Error shortening URL:", error);
-        return null; // Returns null if failed
+        console.warn("⚠️ TinyURL failed, trying is.gd...");
+
+        // Backup Shortener (is.gd)
+        try {
+            let { data } = await axios.get(`https://is.gd/create.php?format=simple&url=${encodeURIComponent(longURL)}`);
+            return data;
+        } catch (backupError) {
+            console.error("❌ is.gd failed too!");
+            return null;
+        }
     }
 };
 
@@ -21,16 +30,16 @@ app.get("/getShortDownloadLink", async (req, res) => {
     if (!url) return res.status(400).json({ error: "URL नहीं हो सकता खाली!" });
 
     try {
-        // 🔸 Get the actual download link (replace with your actual function)
+        // 🔸 Get actual download link (Replace with your own function)
         let result = format === "mp3" ? await ymp3(url) : await ytmp4(url);
         
-        // 🔸 Shorten the download link using TinyURL
+        // 🔸 Shorten the download link
         let shortLink = await shortenURL(result.dlink);
 
-        // 🔸 Send response with short link
+        // 🔸 Send response
         res.json({
             title: result.title,
-            short_download_link: shortLink || result.dlink, // If shortening fails, send original link
+            short_download_link: shortLink || result.dlink, // अगर शॉर्ट लिंक fail हो जाए, तो original भेजेगा
             format: format
         });
 
@@ -40,5 +49,5 @@ app.get("/getShortDownloadLink", async (req, res) => {
     }
 });
 
-// Start the server
+// Start server
 app.listen(3000, () => console.log("🚀 Server चल रहा है port 3000 पर!"));
